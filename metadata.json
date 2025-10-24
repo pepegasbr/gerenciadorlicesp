@@ -1,0 +1,5 @@
+{
+  "name": "Gerenciador de Especializações e Licenças",
+  "description": "Uma aplicação web para gerenciar especializações e licenças de executivos, e gerar scripts para atualizar planilhas Google.",
+  "requestFramePermissions": []
+}
