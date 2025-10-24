@@ -82,12 +82,15 @@
         color: #f3f4f6 !important;
       }
     </style>
-  <script type="importmap">
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="importmap">
 {
   "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0"
   }
 }
@@ -96,6 +99,942 @@
 </head>
   <body class="font-sans">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+    <script type="text/babel" data-presets="react,typescript">
+// All application code is consolidated here to ensure it runs correctly on static hosting platforms.
+
+// --- FROM types.ts ---
+const SpecializationLevel = {
+  INTERMEDIARIA: 'Intermediária',
+  AVANCADA: 'Avançada',
+};
+
+// --- FROM utils/dateFormatter.ts ---
+const monthAbbreviations = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+];
+const formatDisplayDate = (dateString) => {
+  if (!dateString) return '—';
+  try {
+    const datePart = dateString.split('T')[0];
+    const parts = datePart.split('-');
+    if (parts.length !== 3) return dateString;
+
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const date = new Date(year, month, day);
+
+    if (isNaN(date.getTime()) || date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== year) {
+        return dateString;
+    }
+    const monthAbbr = monthAbbreviations[date.getMonth()];
+    return `${('0' + day).slice(-2)} ${monthAbbr}. ${year}`;
+  } catch (error) {
+    return dateString;
+  }
+};
+
+
+// --- FROM services/apiService.ts ---
+const getData = async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const result = await response.json();
+    if (result.status === 'error') {
+        throw new Error(result.message || 'Error from Apps Script');
+    }
+    if (result.data && result.status === 'success') {
+        return result.data;
+    }
+    throw new Error("Formato de resposta da API inválido.");
+};
+
+const updateData = async (url, action, payload) => {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify({ action, payload }),
+        redirect: 'follow',
+    });
+
+    if (!response.ok) {
+        throw new Error(`Network response was not ok. Status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (result.status !== 'success') {
+        throw new Error(result.message || 'An error occurred in the Apps Script.');
+    }
+    return result;
+};
+
+
+// --- FROM components/Header.tsx ---
+const NavButton = ({ label, isActive, onClick, icon }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all duration-300 transform hover:scale-105 ${
+      isActive
+        ? 'bg-primary-600 text-white shadow-md'
+        : 'text-gray-300 hover:bg-white/10 hover:text-white'
+    }`}
+  >
+    {icon}
+    {label}
+  </button>
+);
+
+const Header = ({ activeView, setActiveView }) => {
+  return (
+    <header className="sticky top-0 z-40 bg-gray-900/30 backdrop-blur-lg border-b border-white/10 shadow-lg">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center">
+            <img src="https://i.imgur.com/P1sN6nh.png" alt="Logo" className="w-8 h-8 mr-3"/>
+            <h1 className="text-xl font-bold text-white">Gerenciador</h1>
+          </div>
+          <nav className="flex items-center space-x-2">
+            <NavButton
+              label="Especializações"
+              isActive={activeView === 'specializations'}
+              onClick={() => setActiveView('specializations')}
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>}
+            />
+            <NavButton
+              label="Licenças"
+              isActive={activeView === 'licenses'}
+              onClick={() => setActiveView('licenses')}
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+            />
+             <NavButton
+              label="Backup"
+              isActive={activeView === 'backup'}
+              onClick={() => setActiveView('backup')}
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>}
+            />
+             <NavButton
+                label="Manual"
+                isActive={activeView === 'manual'}
+                onClick={() => setActiveView('manual')}
+                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>}
+              />
+          </nav>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+
+// --- FROM components/SpecializationManager.tsx ---
+const ImportModal = ({ onClose, executives, onUpdate }) => {
+    const { useState } = React;
+    const [step, setStep] = useState(1);
+    const [listText, setListText] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [additions, setAdditions] = useState([]);
+    const [updates, setUpdates] = useState([]);
+    const [removals, setRemovals] = useState([]);
+
+    const monthMap = {
+        'Jan': '01', 'Fev': '02', 'Mar': '03', 'Abr': '04', 'Mai': '05', 'Jun': '06',
+        'Jul': '07', 'Ago': '08', 'Set': '09', 'Out': '10', 'Nov': '11', 'Dez': '12'
+    };
+
+    const parseExecutiveList = (text) => {
+        const lines = text.split('\n');
+        const results = [];
+        let currentSpecialization = SpecializationLevel.INTERMEDIARIA;
+        let onLicenseSection = false;
+
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            const upperCaseLine = trimmedLine.toUpperCase();
+
+            if (upperCaseLine.startsWith('ESPECIALIZAÇÃO AVANÇADA')) {
+                currentSpecialization = SpecializationLevel.AVANCADA;
+                onLicenseSection = upperCaseLine.includes('LICENÇA');
+            } else if (upperCaseLine.startsWith('ESPECIALIZAÇÃO INTERMEDIÁRIA')) {
+                currentSpecialization = SpecializationLevel.INTERMEDIARIA;
+                onLicenseSection = upperCaseLine.includes('LICENÇA');
+            } else if (/^\d+\./.test(trimmedLine)) {
+                const bracketIndex = trimmedLine.indexOf('[');
+                if (bracketIndex > -1) {
+                    const relevantPart = trimmedLine.substring(0, bracketIndex).trim();
+                    let concessionDate = '';
+                    const dateMatch = relevantPart.match(/(\d{2})\s(\w{3})\s(\d{4})/);
+                    if (dateMatch) {
+                        const [, day, monthAbbr, year] = dateMatch;
+                        const month = monthMap[monthAbbr];
+                        if (month) concessionDate = `${year}-${month}-${day}`;
+                    }
+                    const nameAndRankPart = dateMatch ? relevantPart.replace(dateMatch[0], '').trim() : relevantPart;
+                    const words = nameAndRankPart.split(' ');
+                    const nickname = words.pop();
+                    if (nickname) {
+                        results.push({ nickname, specialization: currentSpecialization, status: onLicenseSection ? 'licença' : 'ativo', concessionDate });
+                    }
+                }
+            }
+        }
+        return results;
+    };
+
+    const handleProcess = () => {
+        const parsedList = parseExecutiveList(listText);
+        if(parsedList.length === 0){
+             alert('Nenhum executivo válido foi encontrado. Por favor, verifique o formato da lista colada.');
+             return;
+        }
+        const parsedMap = new Map(parsedList.map(p => [p.nickname.toLowerCase(), p]));
+        const existingMap = new Map(executives.map(e => [e.nickname.toLowerCase(), e]));
+        const toAdd = parsedList.filter(p => !existingMap.has(p.nickname.toLowerCase()));
+        const toRemove = executives.filter(e => !parsedMap.has(e.nickname.toLowerCase()));
+        const toUpdate = [];
+        for (const parsed of parsedList) {
+            const existing = existingMap.get(parsed.nickname.toLowerCase());
+            if (existing) {
+                const changes = {};
+                let needsUpdate = false;
+                if (existing.specialization !== parsed.specialization) { changes.specialization = parsed.specialization; needsUpdate = true; }
+                if (existing.status !== parsed.status) { changes.status = parsed.status; needsUpdate = true; }
+                if (existing.concessionDate !== parsed.concessionDate && parsed.concessionDate) { changes.concessionDate = parsed.concessionDate; needsUpdate = true; }
+                if (needsUpdate) toUpdate.push({ executive: existing, changes });
+            }
+        }
+        setAdditions(toAdd);
+        setUpdates(toUpdate);
+        setRemovals(toRemove);
+        setStep(2);
+    };
+    
+    const handleConfirm = async () => {
+        setIsLoading(true);
+        const promises = [];
+        removals.forEach(exec => promises.push(onUpdate('DELETE_EXECUTIVE', { id: exec.id })));
+        for (const exec of additions) {
+            if (!exec.concessionDate) { alert(`Por favor, defina a data de concessão para: ${exec.nickname}`); setIsLoading(false); return; }
+            promises.push(onUpdate('ADD_EXECUTIVE', exec));
+        }
+        for (const { executive, changes } of updates) {
+            const finalPayload = { ...executive, ...changes };
+            if (!finalPayload.concessionDate) { alert(`Por favor, defina a data de concessão para: ${finalPayload.nickname}`); setIsLoading(false); return; }
+            promises.push(onUpdate('UPDATE_EXECUTIVE', finalPayload));
+        }
+        await Promise.all(promises);
+        setIsLoading(false);
+        onClose();
+    };
+
+    const handleDateChange = (index, date, type) => {
+        if(type === 'add') {
+            const newAdditions = [...additions];
+            newAdditions[index].concessionDate = date;
+            setAdditions(newAdditions);
+        } else {
+            const newUpdates = [...updates];
+            if (!newUpdates[index].changes) newUpdates[index].changes = {};
+            newUpdates[index].changes.concessionDate = date;
+            setUpdates(newUpdates);
+        }
+    };
+    
+    const noChanges = additions.length === 0 && updates.length === 0 && removals.length === 0;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-start p-4 overflow-auto glass-modal-container">
+            <div className="glass-modal rounded-lg shadow-xl p-6 w-full max-w-3xl my-8">
+                {step === 1 && (
+                    <>
+                        <h2 className="text-lg font-bold mb-4">Importar e Sincronizar Lista</h2>
+                        <p className="text-sm text-gray-300 mb-4">Cole a lista do RCCSystem. O sistema irá comparar com o quadro atual e propor as alterações necessárias.</p>
+                        <textarea value={listText} onChange={(e) => setListText(e.target.value)} rows={15} className="w-full p-2 border rounded-md bg-gray-900/50 border-white/20 text-sm" />
+                        <div className="mt-6 flex justify-end gap-2">
+                            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md border border-white/20 hover:bg-white/10">Cancelar</button>
+                            <button type="button" onClick={handleProcess} className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Analisar Lista</button>
+                        </div>
+                    </>
+                )}
+                {step === 2 && (
+                    <>
+                        <h2 className="text-lg font-bold mb-4">Revisar Alterações</h2>
+                         {noChanges ? (
+                            <div className="text-center py-10">
+                                <svg className="mx-auto h-12 w-12 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <h3 className="mt-4 text-lg font-medium text-white">Tudo Sincronizado!</h3>
+                                <p className="mt-2 text-sm text-gray-300">Nenhuma alteração é necessária.</p>
+                                <div className="mt-6 flex justify-end">
+                                    <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Fechar</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <p className="text-sm text-gray-300 mb-4">Confirme as alterações abaixo.</p>
+                                <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+                                   {additions.length > 0 && <div>
+                                        <h3 className="font-semibold text-green-400">EXECUTIVOS A ADICIONAR ({additions.length})</h3>
+                                        <ul className="mt-2 text-sm space-y-2">
+                                            {additions.map((exec, i) => <li key={i} className="p-2 bg-green-900/40 rounded-md grid grid-cols-3 gap-4 items-center">
+                                               <div><strong>{exec.nickname}</strong></div>
+                                               <div>{exec.specialization}</div>
+                                               <input type="date" value={exec.concessionDate} onChange={e => handleDateChange(i, e.target.value, 'add')} required className="w-full text-sm rounded-md shadow-sm"/>
+                                            </li>)}
+                                        </ul>
+                                    </div>}
+                                    {updates.length > 0 && <div>
+                                        <h3 className="font-semibold text-yellow-400">EXECUTIVOS A ALTERAR ({updates.length})</h3>
+                                         <ul className="mt-2 text-sm space-y-2">
+                                            {updates.map(({executive, changes}, i) => {
+                                                const finalDate = changes.concessionDate !== undefined ? changes.concessionDate : executive.concessionDate;
+                                                return (
+                                                <li key={executive.id} className="p-2 bg-yellow-900/40 rounded-md">
+                                                   <strong>{executive.nickname}</strong>
+                                                   <div className="pl-4 text-xs">
+                                                       {changes.specialization && <div>Especialização: {executive.specialization} → <strong>{changes.specialization}</strong></div>}
+                                                       {changes.status && <div>Status: {executive.status} → <strong>{changes.status}</strong></div>}
+                                                       {changes.concessionDate && <div>Data: {formatDisplayDate(executive.concessionDate)} → <strong>{formatDisplayDate(changes.concessionDate)}</strong></div>}
+                                                       {!changes.concessionDate && <input type="date" value={finalDate} onChange={e => handleDateChange(i, e.target.value, 'update')} required className="hidden"/>}
+                                                   </div>
+                                                </li>
+                                                )
+                                            })}
+                                        </ul>
+                                    </div>}
+                                     {removals.length > 0 && <div>
+                                        <h3 className="font-semibold text-red-400">EXECUTIVOS A REMOVER ({removals.length})</h3>
+                                        <ul className="mt-2 text-sm grid grid-cols-3 gap-2">
+                                            {removals.map(exec => <li key={exec.id} className="p-1 bg-red-900/40 rounded truncate" title={exec.nickname}>
+                                               <span className="line-through">{exec.nickname}</span>
+                                            </li>)}
+                                        </ul>
+                                    </div>}
+                                </div>
+                                <div className="mt-4 p-3 bg-yellow-900/50 border border-yellow-700/50 rounded-md">
+                                  <div className="flex items-start">
+                                      <div className="flex-shrink-0"><svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg></div>
+                                      <div className="ml-3"><p className="text-sm text-yellow-300">Atenção: Após confirmar, importe a lista novamente para garantir que tudo está 100% sincronizado.</p></div>
+                                  </div>
+                                </div>
+                                <div className="mt-6 flex justify-end gap-2">
+                                     <button type="button" onClick={() => setStep(1)} disabled={isLoading} className="px-4 py-2 text-sm font-medium rounded-md border border-white/20 hover:bg-white/10 disabled:opacity-50">Voltar</button>
+                                    <button type="button" onClick={handleConfirm} disabled={isLoading} className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50">
+                                        {isLoading && <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+                                        {isLoading ? 'Atualizando...' : 'Confirmar e Atualizar'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
+const ExecutiveModal = ({ executive, onSave, onClose }) => {
+    const { useState } = React;
+    const [nickname, setNickname] = useState(executive?.nickname || '');
+    const [specialization, setSpecialization] = useState(executive?.specialization || SpecializationLevel.INTERMEDIARIA);
+    const [concessionDate, setConcessionDate] = useState(executive?.concessionDate || '');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if(!nickname || !concessionDate) return;
+        onSave({ nickname, specialization, concessionDate });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center glass-modal-container">
+            <div className="glass-modal rounded-lg shadow-xl p-6 w-full max-w-md">
+                <h2 className="text-lg font-bold mb-4">{executive ? 'Editar Executivo' : 'Adicionar Executivo'}</h2>
+                <form onSubmit={handleSubmit}>
+                    <div className="space-y-4">
+                        <div>
+                            <label htmlFor="nickname" className="block text-sm font-medium text-gray-300">Nickname</label>
+                            <input type="text" id="nickname" value={nickname} onChange={e => setNickname(e.target.value)} required className="mt-1 block w-full rounded-md shadow-sm sm:text-sm" />
+                        </div>
+                        <div>
+                            <label htmlFor="specialization" className="block text-sm font-medium text-gray-300">Especialização</label>
+                            <select id="specialization" value={specialization} onChange={e => setSpecialization(e.target.value)} className="mt-1 block w-full rounded-md shadow-sm sm:text-sm">
+                                {Object.values(SpecializationLevel).map(level => <option key={level} value={level}>{level}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="concessionDate" className="block text-sm font-medium text-gray-300">Data de Concessão</label>
+                            <input type="date" id="concessionDate" value={concessionDate} onChange={e => setConcessionDate(e.target.value)} required className="mt-1 block w-full rounded-md shadow-sm sm:text-sm" />
+                        </div>
+                    </div>
+                    <div className="mt-6 flex justify-end space-x-2">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium bg-white/5 border border-white/20 rounded-md shadow-sm hover:bg-white/10">Cancelar</button>
+                        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md shadow-sm hover:bg-primary-700">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+const SpecializationManager = ({ executives, onUpdate }) => {
+  const { useState } = React;
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [currentExecutive, setCurrentExecutive] = useState(null);
+
+  const handleOpenModal = (executive = null) => {
+    setCurrentExecutive(executive);
+    setIsModalOpen(true);
+  };
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setCurrentExecutive(null);
+  };
+  const handleSave = (executiveData) => {
+    if (currentExecutive) {
+      onUpdate('UPDATE_EXECUTIVE', { ...currentExecutive, ...executiveData });
+    } else {
+      onUpdate('ADD_EXECUTIVE', executiveData);
+    }
+    handleCloseModal();
+  };
+  const toggleStatus = (executive) => {
+    if (executive.status === 'licença') {
+      alert("O status de 'Licença' é gerenciado apenas pela importação da lista.");
+      return;
+    }
+    const newStatus = executive.status === 'ativo' ? 'inativo' : 'ativo';
+    onUpdate('UPDATE_EXECUTIVE', { ...executive, status: newStatus });
+  };
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="sm:flex sm:items-center">
+        <div className="sm:flex-auto">
+          <h1 className="text-xl font-semibold text-white">Quadro de Especializações</h1>
+          <p className="mt-2 text-sm text-gray-300">Gerencie os executivos e suas especializações.</p>
+        </div>
+        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex items-center gap-2">
+           <button onClick={() => setIsImportModalOpen(true)} type="button" className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 transition-colors duration-300">Importar Lista</button>
+           <button onClick={() => handleOpenModal()} type="button" className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-500/80 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-500 transition-colors duration-300">Adicionar Executivo</button>
+        </div>
+      </div>
+      <div className="mt-8 flex flex-col">
+        <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Nickname</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Especialização</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Data de Concessão</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
+                    <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Ações</span></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800 bg-transparent">
+                  {executives.map((executive) => (
+                    <tr key={executive.id} className="hover:bg-white/5 transition-colors duration-200">
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">{executive.nickname}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{executive.specialization}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{formatDisplayDate(executive.concessionDate)}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">
+                         <span onClick={() => toggleStatus(executive)} className={`cursor-pointer px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            executive.status === 'ativo' ? 'bg-green-900 text-green-200' :
+                            executive.status === 'licença' ? 'bg-yellow-900 text-yellow-200' :
+                           'bg-red-900 text-red-200'
+                         }`}>{executive.status.charAt(0).toUpperCase() + executive.status.slice(1)}</span>
+                      </td>
+                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-2">
+                        <button onClick={() => handleOpenModal(executive)} className="text-primary-400 hover:text-primary-200">Editar</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      {isModalOpen && <ExecutiveModal executive={currentExecutive} onSave={handleSave} onClose={handleCloseModal} />}
+      {isImportModalOpen && <ImportModal executives={executives} onUpdate={onUpdate} onClose={() => setIsImportModalOpen(false)} />}
+    </div>
+  );
+};
+
+
+// --- FROM components/LicenseManager.tsx ---
+const EditPeriodModal = ({ currentMonth, currentYear, onSave, onClose }) => {
+  const { useState } = React;
+  const [month, setMonth] = useState(currentMonth);
+  const [year, setYear] = useState(currentYear);
+  const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const handleSubmit = (e) => { e.preventDefault(); onSave(month, year); onClose(); };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 glass-modal-container">
+      <div className="glass-modal rounded-lg shadow-xl p-6 w-full max-w-sm">
+        <h2 className="text-lg font-bold mb-4">Editar Período de Referência</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="month" className="block text-sm font-medium text-gray-300">Mês</label>
+              <select id="month" value={month} onChange={e => setMonth(e.target.value)} className="mt-1 block w-full rounded-md shadow-sm sm:text-sm">{months.map(m => <option key={m} value={m}>{m}</option>)}</select>
+            </div>
+            <div>
+              <label htmlFor="year" className="block text-sm font-medium text-gray-300">Ano</label>
+              <input type="number" id="year" value={year} onChange={e => setYear(parseInt(e.target.value, 10))} className="mt-1 block w-full rounded-md shadow-sm sm:text-sm" />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end space-x-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md border border-white/20 hover:bg-white/10">Cancelar</button>
+            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+const OrganizeModal = ({ licensesToRemove, onConfirm, onClose, isLoading }) => {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 glass-modal-container">
+            <div className="glass-modal rounded-lg shadow-xl p-6 w-full max-w-lg">
+                <h2 className="text-lg font-bold mb-4">Organizar e Limpar Licenças</h2>
+                {licensesToRemove.length > 0 ? (
+                    <>
+                        <p className="text-sm text-gray-300 mb-4">As seguintes licenças concluídas serão removidas.</p>
+                        <div className="max-h-60 overflow-y-auto border border-white/20 rounded-md p-2">
+                             <ul className="text-sm space-y-1">
+                                {licensesToRemove.map(license => (
+                                    <li key={license.id} className="p-2 bg-gray-900/50 rounded flex justify-between">
+                                        <span className="font-medium">{license.executiveNickname}</span>
+                                        <span className="text-gray-400">Retornou em: {formatDisplayDate(license.returnDate)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="mt-4 p-3 bg-yellow-900/50 border border-yellow-700/50 rounded-md">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0"><svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg></div>
+                                <div className="ml-3"><p className="text-sm text-yellow-300">Atenção: Após a remoção, clique em "Organizar Dados" novamente para garantir que tudo foi processado.</p></div>
+                            </div>
+                        </div>
+                    </>
+                ) : ( <p className="text-sm text-center py-8 text-gray-300">Nenhuma licença antiga para remover.</p> )}
+                <div className="mt-6 flex justify-end space-x-2">
+                    <button type="button" onClick={onClose} disabled={isLoading} className="px-4 py-2 text-sm font-medium rounded-md border border-white/20 hover:bg-white/10 disabled:opacity-50">Cancelar</button>
+                    {licensesToRemove.length > 0 && (
+                        <button type="button" onClick={onConfirm} disabled={isLoading} className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50">
+                             {isLoading && <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+                            {isLoading ? 'Removendo...' : `Confirmar Remoção (${licensesToRemove.length})`}
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+const ReturnModal = ({ license, executiveNickname, onSave, onClose }) => {
+    const { useState } = React;
+    const today = new Date().toISOString().split('T')[0];
+    const [returnDate, setReturnDate] = useState(today);
+    const handleSubmit = (e) => { e.preventDefault(); onSave(returnDate); };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 glass-modal-container">
+            <div className="glass-modal rounded-lg shadow-xl p-6 w-full max-w-sm">
+                <h2 className="text-lg font-bold mb-4">Registrar Retorno da Licença</h2>
+                <form onSubmit={handleSubmit}>
+                    <p className="text-sm mb-4 text-gray-300">Defina a data de retorno para <strong className="font-semibold text-gray-100">{executiveNickname}</strong>.</p>
+                    <div>
+                        <label htmlFor="returnDate" className="block text-sm font-medium text-gray-300">Data de Retorno</label>
+                        <input type="date" id="returnDate" value={returnDate} onChange={e => setReturnDate(e.target.value)} required className="mt-1 block w-full rounded-md shadow-sm sm:text-sm" />
+                    </div>
+                    <div className="mt-6 flex justify-end space-x-2">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md border border-white/20 hover:bg-white/10">Cancelar</button>
+                        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Salvar Retorno</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+const LicenseModal = ({ license, executives, onSave, onClose }) => {
+    const { useState, useMemo, useEffect } = React;
+    const [executiveNickname, setExecutiveNickname] = useState(license?.executiveNickname || (executives.length > 0 ? executives[0].nickname : ''));
+    const [startDate, setStartDate] = useState(license?.startDate || '');
+    const [endDate, setEndDate] = useState(license?.endDate || '');
+    const [returnDate, setReturnDate] = useState(license?.returnDate || '');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredExecutives = useMemo(() => {
+        if (!searchTerm) return executives;
+        return executives.filter(e => e.nickname.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [executives, searchTerm]);
+
+    useEffect(() => {
+        const isSelectedInList = filteredExecutives.some(e => e.nickname === executiveNickname);
+        if (!license && !isSelectedInList) {
+            setExecutiveNickname(filteredExecutives.length > 0 ? filteredExecutives[0].nickname : '');
+        }
+    }, [searchTerm, filteredExecutives, executiveNickname, license]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if(!executiveNickname || !startDate || !endDate) return;
+        onSave({ executiveNickname, startDate, endDate, returnDate: returnDate || null });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center glass-modal-container">
+            <div className="glass-modal rounded-lg shadow-xl p-6 w-full max-w-md">
+                <h2 className="text-lg font-bold mb-4">{license ? 'Editar Licença' : 'Adicionar Licença'}</h2>
+                <form onSubmit={handleSubmit}>
+                    <div className="space-y-4">
+                        {!license && (
+                            <div>
+                                <label htmlFor="executive-search" className="block text-sm font-medium text-gray-300">Buscar Executivo</label>
+                                <input type="text" id="executive-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Digite para filtrar..." className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"/>
+                            </div>
+                        )}
+                        <div>
+                            <label htmlFor="executive" className="block text-sm font-medium text-gray-300">Executivo</label>
+                            <select id="executive" value={executiveNickname} onChange={e => setExecutiveNickname(e.target.value)} required disabled={!!license} className="mt-1 block w-full rounded-md shadow-sm sm:text-sm disabled:bg-gray-700/50">
+                                {filteredExecutives.map(e => <option key={e.id} value={e.nickname}>{e.nickname}</option>)}
+                                {filteredExecutives.length === 0 && <option disabled value="">Nenhum executivo encontrado</option>}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="startDate" className="block text-sm font-medium text-gray-300">Data de Início</label>
+                            <input type="date" id="startDate" value={startDate} onChange={e => setStartDate(e.target.value)} required className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"/>
+                        </div>
+                        <div>
+                            <label htmlFor="endDate" className="block text-sm font-medium text-gray-300">Data de Fim</label>
+                            <input type="date" id="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} required className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"/>
+                        </div>
+                        <div>
+                            <label htmlFor="returnDate" className="block text-sm font-medium text-gray-300">Data de Retorno (opcional)</label>
+                            <input type="date" id="returnDate" value={returnDate || ''} onChange={e => setReturnDate(e.target.value)} className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"/>
+                        </div>
+                    </div>
+                    <div className="mt-6 flex justify-end space-x-2">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium bg-white/5 border border-white/20 rounded-md shadow-sm hover:bg-white/10">Cancelar</button>
+                        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md shadow-sm hover:bg-primary-700">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+const LicenseManager = ({ licenses, onUpdate, executives, referenceMonth, referenceYear, onSetReferencePeriod }) => {
+  const { useState, useMemo } = React;
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [currentLicense, setCurrentLicense] = useState(null);
+  const [isOrganizeModalOpen, setIsOrganizeModalOpen] = useState(false);
+  const [licensesToRemove, setLicensesToRemove] = useState([]);
+  const [isOrganizing, setIsOrganizing] = useState(false);
+  const [isEditPeriodModalOpen, setIsEditPeriodModalOpen] = useState(false);
+
+  const activeExecutives = useMemo(() => executives.filter(e => e.status !== 'inativo'), [executives]);
+  
+  const handleOpenModal = (license = null) => { setCurrentLicense(license); setIsModalOpen(true); };
+  const handleOpenReturnModal = (license) => { setCurrentLicense(license); setIsReturnModalOpen(true); };
+  const handleCloseModal = () => { setIsModalOpen(false); setIsReturnModalOpen(false); setCurrentLicense(null); };
+  const handleSave = (licenseData) => { if (currentLicense) { onUpdate('UPDATE_LICENSE', { ...currentLicense, ...licenseData }); } else { onUpdate('ADD_LICENSE', licenseData); } handleCloseModal(); };
+  const handleSaveReturnDate = (returnDate) => { if (currentLicense) { onUpdate('UPDATE_LICENSE', { ...currentLicense, returnDate }); } handleCloseModal(); };
+  
+  const handleOpenOrganizeModal = () => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const dayOfMonth = today.getDate();
+    const cutoffDate = dayOfMonth < 16 ? new Date(today.getFullYear(), today.getMonth(), 1) : new Date(today.getFullYear(), today.getMonth(), 16);
+    const toRemove = licenses.filter(license => {
+        if (!license.returnDate) return false;
+        const returnDateObj = new Date(license.returnDate.replace(/-/g, '/'));
+        return returnDateObj < cutoffDate;
+    });
+    setLicensesToRemove(toRemove); setIsOrganizeModalOpen(true);
+  };
+  const handleConfirmRemoval = async () => {
+      setIsOrganizing(true);
+      const promises = licensesToRemove.map(license => onUpdate('DELETE_LICENSE', { id: license.id }));
+      try { await Promise.all(promises); } catch (error) { console.error("Failed to remove licenses:", error); } 
+      finally { setIsOrganizing(false); setIsOrganizeModalOpen(false); setLicensesToRemove([]); }
+  };
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="sm:flex sm:items-center">
+        <div className="sm:flex-auto">
+          <h1 className="text-xl font-semibold text-white">Quadro de Licenças</h1>
+          <p className="mt-2 text-sm text-gray-300">Gerencie as licenças dos executivos.</p>
+          <div className="mt-2 text-sm text-gray-300">
+            Período de Referência: <strong className="text-white">{referenceMonth && referenceYear ? `${referenceMonth.charAt(0).toUpperCase() + referenceMonth.slice(1)} de ${referenceYear}` : 'Carregando...'}</strong>
+            <button onClick={() => setIsEditPeriodModalOpen(true)} title="Editar período" className="ml-2 inline-flex align-middle"><svg className="w-4 h-4 text-gray-400 hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z" /></svg></button>
+          </div>
+        </div>
+        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex items-center gap-2">
+           <button onClick={handleOpenOrganizeModal} type="button" className="inline-flex items-center justify-center rounded-md border border-yellow-500 px-4 py-2 text-sm font-medium text-yellow-300 shadow-sm hover:bg-yellow-500/10 transition-colors duration-300">Organizar Dados</button>
+           <button onClick={() => handleOpenModal()} type="button" disabled={activeExecutives.length === 0} className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-300" title={activeExecutives.length === 0 ? "Adicione um executivo primeiro" : ""}>Adicionar Licença</button>
+        </div>
+      </div>
+      <div className="mt-8 flex flex-col">
+        <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Nickname</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Início</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Fim</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Retorno</th>
+                    <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Ações</span></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800 bg-transparent">
+                  {licenses.map((license) => (
+                    <tr key={license.id} className="hover:bg-white/5 transition-colors duration-200">
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">{license.executiveNickname || 'Desconhecido'}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{formatDisplayDate(license.startDate)}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{formatDisplayDate(license.endDate)}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{formatDisplayDate(license.returnDate)}</td>
+                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-2">
+                         <button onClick={() => handleOpenReturnModal(license)} disabled={!!license.returnDate} className="text-green-400 hover:text-green-200 disabled:text-gray-500 disabled:cursor-not-allowed">Retornou</button>
+                         <button onClick={() => handleOpenModal(license)} className="text-primary-400 hover:text-primary-200">Editar</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      {isModalOpen && <LicenseModal license={currentLicense} executives={activeExecutives} onSave={handleSave} onClose={handleCloseModal} />}
+      {isReturnModalOpen && currentLicense && <ReturnModal license={currentLicense} executiveNickname={currentLicense.executiveNickname || 'Desconhecido'} onSave={handleSaveReturnDate} onClose={handleCloseModal} />}
+      {isOrganizeModalOpen && <OrganizeModal licensesToRemove={licensesToRemove} onConfirm={handleConfirmRemoval} onClose={() => setIsOrganizeModalOpen(false)} isLoading={isOrganizing} />}
+      {isEditPeriodModalOpen && <EditPeriodModal currentMonth={referenceMonth} currentYear={referenceYear} onSave={onSetReferencePeriod} onClose={() => setIsEditPeriodModalOpen(false)} />}
+    </div>
+  );
+};
+
+
+// --- FROM components/BackupManager.tsx ---
+const BackupManager = ({ onUpdate, executives }) => {
+    const { useState } = React;
+    const [nickname, setNickname] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [successMessage, setSuccessMessage] = useState(null);
+
+    const handleSaveBackup = async () => {
+        if (!nickname.trim()) { setError('O campo nickname é obrigatório.'); return; }
+        if (executives.length === 0) { setError('Não há executivos para fazer backup.'); return; }
+        setIsLoading(true); setError(null); setSuccessMessage(null);
+        try {
+            const executivesForBackup = executives.map(exec => ({...exec, concessionDate: exec.concessionDate.split('T')[0]}));
+            await onUpdate('CREATE_BACKUP', { nickname, executives: executivesForBackup });
+            setSuccessMessage('Backup salvo com sucesso na sua Planilha Google!');
+            setNickname('');
+        } catch (err) {
+            setError(`Falha ao salvar o backup: ${err.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="p-4 sm:p-6 lg:p-8">
+            <div className="max-w-4xl mx-auto">
+                <div className="sm:flex sm:items-center">
+                    <div className="sm:flex-auto">
+                        <h1 className="text-xl font-semibold text-white">Backup da Listagem de Especializações</h1>
+                        <p className="mt-2 text-sm text-gray-300">Crie um backup do quadro atual. Cada backup é salvo com seu nome e data.</p>
+                    </div>
+                </div>
+                <div className="mt-6 space-y-6">
+                     <div>
+                        <label htmlFor="nickname" className="block text-sm font-medium text-gray-300">Seu Nickname</label>
+                        <div className="mt-1"><input type="text" name="nickname" id="nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} className="block w-full max-w-xs rounded-md shadow-sm sm:text-sm" placeholder="Seu nome"/></div>
+                    </div>
+                    <div className="p-4 bg-gray-900/50 border border-white/10 rounded-md">
+                        <h3 className="text-sm font-medium text-gray-200">Pré-visualização do Backup</h3>
+                        <p className="mt-1 text-sm text-gray-400">Você irá criar um backup do quadro atual com <strong>{executives.length}</strong> executivo(s).</p>
+                    </div>
+                    {error && <div className="rounded-md bg-red-900/40 p-4"><p className="text-sm font-medium text-red-200">{error}</p></div>}
+                    {successMessage && <div className="rounded-md bg-green-900/40 p-4"><p className="text-sm font-medium text-green-200">{successMessage}</p></div>}
+                    <div className="flex justify-end items-center gap-2">
+                         <a href="https://docs.google.com/spreadsheets/d/16_VGxjpvjqAIMwCKotiaf-szOKPo2TADcaYbvyciTSo/edit?gid=2013340827#gid=2013340827" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium text-gray-200 shadow-sm hover:bg-white/10 transition-colors duration-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            Abrir Planilha
+                        </a>
+                        <button type="button" onClick={handleSaveBackup} disabled={isLoading} className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-300">
+                             {isLoading && <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+                            {isLoading ? 'Salvando...' : 'Salvar Backup'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// --- FROM components/Manual.tsx ---
+const Manual = () => {
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 text-gray-300">
+      <div className="max-w-4xl mx-auto prose prose-invert prose-headings:text-white prose-a:text-primary-400 hover:prose-a:text-primary-300">
+        <h1 className="text-2xl font-bold text-white mb-6">Manual de Utilização</h1>
+        <p className="text-lg leading-7">Este manual guia você pelas funcionalidades do sistema para a correta atualização e fiscalização.</p>
+        <section className="mt-8">
+          <h2 className="text-xl font-semibold text-white border-b border-primary-700 pb-2 mb-4">Gerenciador de Especializações</h2>
+          <p>Sincronize a listagem de executivos do RCCSystem com sua planilha de forma automatizada.</p>
+          <ol className="list-decimal list-inside space-y-3 mt-4">
+            <li><strong>Acesse o RCCSystem:</strong> Vá em <em>Corpo Executivo &gt; Listagem: Especialização</em>.</li>
+            <li><strong>Copie os Dados:</strong> Copie toda a lista, da "ESPECIALIZAÇÃO AVANÇADA" até a "ESPECIALIZAÇÃO INTERMEDIÁRIA".</li>
+            <li><strong>Importe a Lista:</strong> Neste app, na aba <strong>Especializações</strong>, clique em <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">Importar Lista</code>.</li>
+            <li><strong>Cole e Analise:</strong> Cole o texto copiado e clique em <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">Analisar Lista</code>.</li>
+            <li><strong>Revise as Alterações:</strong> O sistema exibirá executivos a adicionar, alterar ou remover.</li>
+            <li><strong>Confirme e Sincronize:</strong> Clique em <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">Confirmar e Atualizar</code>. É recomendado importar novamente para garantir a sincronização.</li>
+          </ol>
+        </section>
+        <section className="mt-8">
+          <h2 className="text-xl font-semibold text-white border-b border-primary-700 pb-2 mb-4">Gerenciador de Licenças</h2>
+          <p>Registre e remova licenças de especialização.</p>
+          <h3 className="text-lg font-semibold text-white mt-6">Adicionando e Registrando Retornos</h3>
+          <ul className="list-disc list-inside space-y-3 mt-4">
+            <li><strong>Adicionar Licença:</strong> Clique em <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">Adicionar Licença</code>, preencha os dados e salve.</li>
+            <li><strong>Registrar Retorno:</strong> Encontre a licença na lista e clique em <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">Retornou</code>. Informe a data e salve.</li>
+          </ul>
+          <h3 className="text-lg font-semibold text-white mt-6">Organizando e Limpando o Quadro</h3>
+          <ul className="list-disc list-inside space-y-3 mt-4">
+            <li><strong>Quando remover:</strong> A remoção deve ser feita no <strong>dia 01</strong> ou no <strong>dia 16</strong> de cada mês.</li>
+            <li><strong>Como remover:</strong> Clique em <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">Organizar Dados</code>. O sistema mostrará quais licenças antigas podem ser removidas. Confirme a remoção.</li>
+            <li><strong>Mudança de Mês:</strong> Ao iniciar um novo mês, clique no ícone de lápis ao lado do "Período de Referência" para ajustar. Depois, use <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">Organizar Dados</code>.</li>
+          </ul>
+        </section>
+        <section className="mt-8">
+          <h2 className="text-xl font-semibold text-white border-b border-primary-700 pb-2 mb-4">Backup da Listagem</h2>
+          <p>É crucial realizar o backup da listagem de especializações.</p>
+          <ul className="list-disc list-inside space-y-3 mt-4">
+            <li><strong>Frequência:</strong> O backup deve ser realizado no <strong>dia 01</strong> ou no <strong>dia 16</strong> de cada mês.</li>
+            <li><strong>Como Fazer:</strong> Acesse a aba <strong>Backup</strong>, insira seu nickname e clique em <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">Salvar Backup</code>.</li>
+            <li><strong>Verificar Backup:</strong> Use o botão <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">Abrir Planilha</code> para conferir o backup salvo.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  );
+};
+
+// NOTE: ScriptGenerator and geminiService are omitted as they are hidden from the UI and not essential for the core app functionality to render.
+
+// --- FROM App.tsx ---
+const App = () => {
+  const { useState, useEffect, useCallback } = React;
+  const [appScriptUrl] = useState('https://script.google.com/macros/s/AKfycbxxOZBdKxJNKEDcwJV6sXf4QlhbBNTw2WzocHZSb6VPc-pEbfabbXrwu92U0OZE3OZU/exec');
+  const [executives, setExecutives] = useState([]);
+  const [licenses, setLicenses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeView, setActiveView] = useState('specializations');
+  const [referenceMonth, setReferenceMonth] = useState('');
+  const [referenceYear, setReferenceYear] = useState(0);
+  
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await getData(appScriptUrl);
+      setExecutives(data.executives || []);
+      setLicenses(data.licenses || []);
+      setReferenceMonth(data.referenceMonth || '');
+      setReferenceYear(data.referenceYear || new Date().getFullYear());
+    } catch (err) {
+      setError('Falha ao buscar dados. Verifique a URL do script e as permissões.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [appScriptUrl]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleDataUpdate = async (action, payload) => {
+      if (!appScriptUrl) { setError('A URL do App Script não está configurada.'); return; }
+      setIsLoading(true);
+      try {
+          await updateData(appScriptUrl, action, payload);
+          if (action !== 'CREATE_BACKUP') await fetchData();
+      } catch (err) {
+          setError(err instanceof Error ? `Falha ao atualizar dados: ${err.message}` : 'Ocorreu um erro.');
+          console.error(err);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+  
+  const handleSetReferencePeriod = async (month, year) => {
+    if (!appScriptUrl) return;
+    const originalMonth = referenceMonth; const originalYear = referenceYear;
+    setReferenceMonth(month); setReferenceYear(year);
+    try {
+      await updateData(appScriptUrl, 'UPDATE_REFERENCE_PERIOD', { month, year });
+    } catch (err) {
+      setError('Falha ao atualizar o período.');
+      setReferenceMonth(originalMonth); setReferenceYear(originalYear);
+      console.error(err);
+    }
+  };
+
+  const renderContent = () => {
+    if (isLoading && activeView !== 'backup' && activeView !== 'manual') {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <svg className="animate-spin h-8 w-8 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            </div>
+        )
+    }
+    if (error) { return <div className="p-8 text-center text-red-400">{error}</div> }
+    switch (activeView) {
+      case 'specializations': return <SpecializationManager executives={executives} onUpdate={handleDataUpdate} />;
+      case 'licenses': return <LicenseManager licenses={licenses} executives={executives} onUpdate={handleDataUpdate} referenceMonth={referenceMonth} referenceYear={referenceYear} onSetReferencePeriod={handleSetReferencePeriod}/>;
+      case 'backup': return <BackupManager onUpdate={handleDataUpdate} executives={executives} />;
+      case 'manual': return <Manual />;
+      default: return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header activeView={activeView} setActiveView={setActiveView} />
+      <main className="flex-grow">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="my-8 glass-card rounded-lg shadow-2xl min-h-[400px]">
+            {renderContent()}
+          </div>
+        </div>
+      </main>
+      <footer className="text-center py-4 text-sm text-gray-400"><p>Desenvolvido por Pegas</p></footer>
+    </div>
+  );
+};
+
+
+// --- FROM index.tsx ---
+const rootElement = document.getElementById('root');
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+    </script>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>
