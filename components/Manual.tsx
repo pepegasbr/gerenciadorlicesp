@@ -1,8 +1,9 @@
+
 import React from 'react';
 
 const Manual: React.FC = () => {
   return (
-    <div className="p-4 sm:p-6 lg:p-8 text-gray-300">
+    <div className="glass-card rounded-lg p-4 sm:p-6 lg:p-8 text-gray-300">
       <div className="max-w-4xl mx-auto prose prose-invert prose-headings:text-white prose-a:text-primary-400 hover:prose-a:text-primary-300">
         <h1 className="text-2xl font-bold text-white mb-6">Manual de Utilização</h1>
         <p className="text-lg leading-7">

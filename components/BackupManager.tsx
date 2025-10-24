@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { Executive } from '../types';
 
@@ -46,7 +47,7 @@ const BackupManager: React.FC<BackupManagerProps> = ({ onUpdate, executives }) =
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="glass-card rounded-lg p-4 sm:p-6 lg:p-8">
             <div className="max-w-4xl mx-auto">
                 <div className="sm:flex sm:items-center">
                     <div className="sm:flex-auto">

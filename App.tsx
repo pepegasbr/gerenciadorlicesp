@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import SpecializationManager from './components/SpecializationManager';
@@ -120,7 +121,7 @@ const App: React.FC = () => {
       <Header activeView={activeView} setActiveView={setActiveView} />
       <main className="flex-grow">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="my-8 glass-card rounded-lg shadow-2xl min-h-[400px]">
+          <div className="my-8 shadow-2xl rounded-lg min-h-[400px]">
             {renderContent()}
           </div>
         </div>

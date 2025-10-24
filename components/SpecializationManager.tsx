@@ -179,8 +179,8 @@ const ImportModal: React.FC<ImportModalProps> = ({ onClose, executives, onUpdate
     const noChanges = additions.length === 0 && updates.length === 0 && removals.length === 0;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-start p-4 overflow-auto glass-modal-container">
-            <div className="glass-modal rounded-lg shadow-xl p-6 w-full max-w-3xl my-8">
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 overflow-auto glass-modal-container">
+            <div className="glass-modal rounded-lg shadow-xl p-6 w-full max-w-3xl">
                 {step === 1 && (
                     <>
                         <h2 className="text-lg font-bold mb-4">Importar e Sincronizar Lista</h2>
@@ -316,74 +316,76 @@ const SpecializationManager: React.FC<SpecializationManagerProps> = ({ executive
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-xl font-semibold text-white">Quadro de Especializações</h1>
-          <p className="mt-2 text-sm text-gray-300">
-            Gerencie os executivos e suas especializações.
-          </p>
+    <>
+      <div className="glass-card rounded-lg p-4 sm:p-6 lg:p-8">
+        <div className="sm:flex sm:items-center">
+          <div className="sm:flex-auto">
+            <h1 className="text-xl font-semibold text-white">Quadro de Especializações</h1>
+            <p className="mt-2 text-sm text-gray-300">
+              Gerencie os executivos e suas especializações.
+            </p>
+          </div>
+          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex items-center gap-2">
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              type="button"
+              className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:w-auto transition-colors duration-300"
+            >
+              Importar Lista
+            </button>
+            <button
+              onClick={() => handleOpenModal()}
+              type="button"
+              className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-500/80 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:w-auto transition-colors duration-300"
+            >
+              Adicionar Executivo
+            </button>
+          </div>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex items-center gap-2">
-           <button
-            onClick={() => setIsImportModalOpen(true)}
-            type="button"
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:w-auto transition-colors duration-300"
-          >
-            Importar Lista
-          </button>
-          <button
-            onClick={() => handleOpenModal()}
-            type="button"
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-500/80 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:w-auto transition-colors duration-300"
-          >
-            Adicionar Executivo
-          </button>
-        </div>
-      </div>
-      <div className="mt-8 flex flex-col">
-        <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-              <table className="min-w-full divide-y divide-gray-700">
-                <thead className="bg-white/5">
-                  <tr>
-                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Nickname</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Especialização</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Data de Concessão</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
-                    <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Ações</span></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800 bg-transparent">
-                  {executives.map((executive) => (
-                    <tr key={executive.id} className="hover:bg-white/5 transition-colors duration-200">
-                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">{executive.nickname}</td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{executive.specialization}</td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{formatDisplayDate(executive.concessionDate)}</td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">
-                         <span onClick={() => toggleStatus(executive)} className={`cursor-pointer px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            executive.status === 'ativo' ? 'bg-green-900 text-green-200' :
-                            executive.status === 'licença' ? 'bg-yellow-900 text-yellow-200' :
-                           'bg-red-900 text-red-200'
-                         }`}>
-                           {executive.status.charAt(0).toUpperCase() + executive.status.slice(1)}
-                         </span>
-                      </td>
-                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-2">
-                        <button onClick={() => handleOpenModal(executive)} className="text-primary-400 hover:text-primary-200">Editar</button>
-                      </td>
+        <div className="mt-8 flex flex-col">
+          <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+              <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                <table className="min-w-full divide-y divide-gray-700">
+                  <thead className="bg-white/5">
+                    <tr>
+                      <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Nickname</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Especialização</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Data de Concessão</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
+                      <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Ações</span></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800 bg-transparent">
+                    {executives.map((executive) => (
+                      <tr key={executive.id} className="hover:bg-white/5 transition-colors duration-200">
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">{executive.nickname}</td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{executive.specialization}</td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{formatDisplayDate(executive.concessionDate)}</td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">
+                          <span onClick={() => toggleStatus(executive)} className={`cursor-pointer px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              executive.status === 'ativo' ? 'bg-green-900 text-green-200' :
+                              executive.status === 'licença' ? 'bg-yellow-900 text-yellow-200' :
+                            'bg-red-900 text-red-200'
+                          }`}>
+                            {executive.status.charAt(0).toUpperCase() + executive.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-2">
+                          <button onClick={() => handleOpenModal(executive)} className="text-primary-400 hover:text-primary-200">Editar</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
       </div>
       {isModalOpen && <ExecutiveModal executive={currentExecutive} onSave={handleSave} onClose={handleCloseModal} />}
       {isImportModalOpen && <ImportModal executives={executives} onUpdate={onUpdate} onClose={() => setIsImportModalOpen(false)} />}
-    </div>
+    </>
   );
 };
 
