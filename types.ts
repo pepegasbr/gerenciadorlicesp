@@ -19,4 +19,5 @@ export interface License {
   returnDate?: string | null; // YYYY-MM-DD
 }
 
-export type AppView = 'specializations' | 'licenses' | 'generator' | 'loading' | 'backup' | 'manual';
+// The 'generator' view was removed as the feature is no longer part of the application.
+export type AppView = 'specializations' | 'licenses' | 'loading' | 'backup' | 'manual';
